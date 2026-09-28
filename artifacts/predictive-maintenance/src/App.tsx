@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { Link, Route, Switch, useLocation, useParams, Router as WouterRouter } from 'wouter';
 import {
@@ -131,6 +131,42 @@ function Overview() {
   </div>;
 }
 
+function parseCsvRows(text: string): { headers: string[]; rows: Record<string, unknown>[] } {
+  const lines = text.trim().split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+  if (lines.length === 0) return { headers: [], rows: [] };
+
+  const firstTokens = lines[0].split(',').map((h) => h.trim().replace(/^["']|["']$/g, ''));
+  const firstTokenIsNumber = !isNaN(Number(firstTokens[0])) && firstTokens[0] !== '';
+
+  let headers: string[] = [];
+  let dataLines: string[] = [];
+
+  if (firstTokenIsNumber) {
+    if (firstTokens.length === 10) {
+      headers = ['UDI', 'Product_ID', 'Type', 'Air_temperature', 'Process_temperature', 'Rotational_speed', 'Torque', 'Tool_wear', 'Target', 'Failure_Type'];
+    } else {
+      headers = firstTokens.map((_, i) => `Col_${i + 1}`);
+    }
+    dataLines = lines;
+  } else {
+    headers = firstTokens.map((h, i) => h.replace(/[\[\]]/g, '').trim().replace(/\s+/g, '_') || `Col_${i + 1}`);
+    dataLines = lines.slice(1);
+  }
+
+  const rows = dataLines.map((line) => {
+    const values = line.split(',').map((v) => v.trim().replace(/^["']|["']$/g, ''));
+    const row: Record<string, unknown> = {};
+    headers.forEach((h, i) => {
+      const val = values[i] ?? '';
+      const num = Number(val);
+      row[h] = !isNaN(num) && val !== '' ? num : val;
+    });
+    return row;
+  });
+
+  return { headers, rows };
+}
+
 function DatasetPage() {
   const summary = useGetDashboardSummary();
   const loadDemo = useLoadDemoDataset();
@@ -142,19 +178,74 @@ function DatasetPage() {
   const [uploadName, setUploadName] = useState('uploaded-dataset');
   const [profileData, setProfileData] = useState<DatasetProfile | undefined>();
   const datasetId = profileData?.id ?? (summary.data?.dataset || '');
+
+  useEffect(() => {
+    if (!profileData && !loadDemo.isPending) {
+      loadDemo.mutate(undefined, {
+        onSuccess: (d) => {
+          setProfileData(d);
+          setTarget(d.targetColumn ?? d.possibleTargets?.[0] ?? '');
+          qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+        },
+      });
+    }
+  }, []);
   const onFile = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]; if (!file) return; setUploadName(file.name.replace(/\.[^.]+$/, '')); const reader = new FileReader(); reader.onload = () => setJsonText(String(reader.result ?? '')); reader.readAsText(file);
   };
-  const parseAndUpload = () => { try { const parsed = JSON.parse(jsonText); const rows = Array.isArray(parsed) ? parsed : parsed.rows; const columns = Object.keys(rows?.[0] ?? {}); upload.mutate({ data: { name: uploadName, columns, rows, targetColumn: target || null } }, { onSuccess: (data) => { setProfileData(data); qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() }); } }); } catch { setJsonText('Invalid JSON — provide an array of row objects.'); } };
+  const parseAndUpload = () => {
+    try {
+      const trimmed = jsonText.trim();
+      let rows: Record<string, unknown>[] = [];
+      let columns: string[] = [];
+      if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+        const parsed = JSON.parse(trimmed);
+        rows = Array.isArray(parsed) ? parsed : (parsed.rows ?? []);
+        columns = Object.keys(rows?.[0] ?? {});
+      } else {
+        const parsedCsv = parseCsvRows(trimmed);
+        rows = parsedCsv.rows;
+        columns = parsedCsv.headers;
+      }
+      if (!rows || rows.length === 0) {
+        throw new Error('No valid data rows found');
+      }
+
+      let selectedTarget = target;
+      if (!selectedTarget || !columns.includes(selectedTarget)) {
+        const priorityCandidates = ['Failure_Type', 'FailureType', 'HealthState', 'Target', 'health', 'status'];
+        const found = priorityCandidates.find((c) => columns.some((col) => col.toLowerCase() === c.toLowerCase()));
+        if (found) {
+          selectedTarget = columns.find((col) => col.toLowerCase() === found.toLowerCase()) ?? columns.at(-1)!;
+        } else {
+          selectedTarget = columns.at(-1)!;
+        }
+      }
+
+      upload.mutate(
+        { data: { name: uploadName, columns, rows, targetColumn: selectedTarget || null } },
+        {
+          onSuccess: (data) => {
+            setProfileData(data);
+            setTarget(data.targetColumn ?? data.possibleTargets?.[0] ?? selectedTarget);
+            qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+          },
+        }
+      );
+    } catch {
+      setJsonText('Invalid JSON or CSV — provide an array of row objects or comma-separated CSV rows.');
+    }
+  };
   const applyTarget = () => { if (datasetId && target) profile.mutate({ data: { datasetId, targetColumn: target } }, { onSuccess: (data) => setProfileData(data) }); };
   const data = profileData;
   return <div className="rise-in"><PageIntro eyebrow="Data foundation" title="Dataset profile" description="Inspect the shape of the evidence before asking the model to make a maintenance call." ><button data-testid="button-dataset-demo" onClick={() => loadDemo.mutate(undefined, { onSuccess: (d) => { setProfileData(d); setTarget(d.targetColumn ?? d.possibleTargets[0] ?? ''); qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() }); } })} className="inline-flex items-center gap-2 rounded-xl bg-[#b3342c] px-4 py-3 text-xs font-extrabold text-white disabled:opacity-60">{loadDemo.isPending ? 'Loading…' : 'Use demo dataset'} <Sparkles className="h-4 w-4" /></button></PageIntro>
-    <div className="grid gap-6 xl:grid-cols-[.8fr_1.2fr]"><Panel eyebrow="01 / Ingest" title="Upload structured data"><div className="p-5"><label data-testid="label-upload-file" className="group flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-[#d8c9bc] bg-[#fcf8f4] px-6 py-9 text-center hover:border-[#b3342c]"><input data-testid="input-upload-file" type="file" accept=".json,.csv" onChange={onFile} className="sr-only" /><UploadCloud className="h-7 w-7 text-[#b3342c]" /><span className="mt-3 text-sm font-extrabold">Choose a CSV or JSON file</span><span className="mt-1 text-xs text-[#8b8178]">The client parses rows, columns, and target candidates.</span></label><div className="mt-4 grid gap-3 sm:grid-cols-2"><label className="text-xs font-bold text-[#645d56]">Dataset name<input data-testid="input-dataset-name" value={uploadName} onChange={(e) => setUploadName(e.target.value)} className="mt-1.5 w-full rounded-lg border border-[#ded4ca] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#b3342c]" /></label><label className="text-xs font-bold text-[#645d56]">Target hint <input data-testid="input-target-hint" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="optional" className="mt-1.5 w-full rounded-lg border border-[#ded4ca] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#b3342c]" /></label></div><label className="mt-4 block text-xs font-bold text-[#645d56]">Or paste JSON rows<textarea data-testid="input-json-rows" value={jsonText} onChange={(e) => setJsonText(e.target.value)} rows={5} placeholder='[{"temperature": 72, "vibration": 0.18, "health": "healthy"}]' className="mt-1.5 w-full rounded-lg border border-[#ded4ca] bg-white px-3 py-2.5 font-mono text-[11px] outline-none focus:border-[#b3342c]" /></label><button data-testid="button-upload-dataset" onClick={parseAndUpload} disabled={upload.isPending || !jsonText} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#20242c] px-4 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-45">{upload.isPending ? 'Profiling…' : 'Upload and profile'} <ArrowUpRight className="h-3.5 w-3.5" /></button>{upload.isError && <p className="mt-3 text-xs font-semibold text-[#a32d27]">Upload failed. Check the row structure and retry.</p>}</div></Panel><Panel eyebrow="02 / Readiness" title="Profile signal"><div className="p-5"><QueryState loading={summary.isLoading} error={summary.isError} onRetry={() => summary.refetch()}>{data || summary.data ? <><div className="grid grid-cols-2 gap-3 sm:grid-cols-4"><Metric label="Rows" value={data?.rows ?? summary.data?.rows ?? '—'} detail="observations" icon={FileSpreadsheet} /><Metric label="Features" value={data?.columns ?? summary.data?.features ?? '—'} detail="candidate inputs" icon={SlidersHorizontal} /><Metric label="Missing" value={data?.missingValues ?? summary.data?.missingValues ?? '—'} detail="values to review" icon={TriangleAlert} tone={data?.missingValues ? 'amber' : 'green'} /><Metric label="Duplicates" value={data?.duplicateRows ?? '—'} detail="repeated rows" icon={Layers3} /></div><div className="mt-6 rounded-xl border border-[#eee7df] p-4"><div className="flex items-center justify-between"><div><div className="text-xs font-extrabold">Select prediction target</div><p className="mt-1 text-[11px] text-[#847b72]">Re-profile the dataset after changing the target.</p></div><button data-testid="button-profile-dataset" onClick={applyTarget} disabled={profile.isPending || !target || !datasetId} className="rounded-lg border border-[#d9c8bf] px-3 py-2 text-[11px] font-bold text-[#8f322c] disabled:opacity-40">{profile.isPending ? 'Applying…' : 'Apply target'}</button></div><select data-testid="select-target-column" value={target || data?.targetColumn || ''} onChange={(e) => setTarget(e.target.value)} className="mt-4 w-full rounded-lg border border-[#ded4ca] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#b3342c]"><option value="">Choose a target column</option>{(data?.possibleTargets ?? [summary.data?.target].filter(Boolean) as string[]).map((item) => <option key={item} value={item}>{item}</option>)}</select></div><div className="mt-4 grid gap-4 sm:grid-cols-2"><div><div className="mono-label text-[#a1968b]">Numerical features</div><div className="mt-2 flex flex-wrap gap-1.5">{(data?.numericalFeatures ?? []).map((item) => <span key={item} className="rounded-md bg-[#f0ebe5] px-2 py-1 font-mono text-[10px] text-[#665e56]">{item}</span>)}</div></div><div><div className="mono-label text-[#a1968b]">Categorical features</div><div className="mt-2 flex flex-wrap gap-1.5">{(data?.categoricalFeatures ?? []).map((item) => <span key={item} className="rounded-md bg-[#f9e8e3] px-2 py-1 font-mono text-[10px] text-[#994039]">{item}</span>)}</div></div></div></> : <EmptyState icon={Database} title="No profile loaded" body="Use the built-in demo or upload a structured dataset to inspect readiness." />}</QueryState></div></Panel></div>
+    <div className="grid gap-6 xl:grid-cols-[.8fr_1.2fr]"><Panel eyebrow="01 / Ingest" title="Upload structured data"><div className="p-5"><label data-testid="label-upload-file" className="group flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-[#d8c9bc] bg-[#fcf8f4] px-6 py-9 text-center hover:border-[#b3342c]"><input data-testid="input-upload-file" type="file" accept=".json,.csv" onChange={onFile} className="sr-only" /><UploadCloud className="h-7 w-7 text-[#b3342c]" /><span className="mt-3 text-sm font-extrabold">Choose a CSV or JSON file</span><span className="mt-1 text-xs text-[#8b8178]">The client parses rows, columns, and target candidates.</span></label><div className="mt-4 grid gap-3 sm:grid-cols-2"><label className="text-xs font-bold text-[#645d56]">Dataset name<input data-testid="input-dataset-name" value={uploadName} onChange={(e) => setUploadName(e.target.value)} className="mt-1.5 w-full rounded-lg border border-[#ded4ca] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#b3342c]" /></label><label className="text-xs font-bold text-[#645d56]">Target hint <input data-testid="input-target-hint" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="optional" className="mt-1.5 w-full rounded-lg border border-[#ded4ca] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#b3342c]" /></label></div><label className="mt-4 block text-xs font-bold text-[#645d56]">Or paste JSON rows<textarea data-testid="input-json-rows" value={jsonText} onChange={(e) => setJsonText(e.target.value)} rows={5} placeholder='[{"temperature": 72, "vibration": 0.18, "health": "healthy"}]' className="mt-1.5 w-full rounded-lg border border-[#ded4ca] bg-white px-3 py-2.5 font-mono text-[11px] outline-none focus:border-[#b3342c]" /></label><button data-testid="button-upload-dataset" onClick={parseAndUpload} disabled={upload.isPending || !jsonText} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#20242c] px-4 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-45">{upload.isPending ? 'Profiling…' : 'Upload and profile'} <ArrowUpRight className="h-3.5 w-3.5" /></button>{upload.isError && <p className="mt-3 text-xs font-semibold text-[#a32d27]">Upload failed: {((upload.error as any)?.response?.data?.error) || (upload.error as any)?.message || 'Check the row structure and retry.'}</p>}</div></Panel><Panel eyebrow="02 / Readiness" title="Profile signal"><div className="p-5"><QueryState loading={summary.isLoading} error={summary.isError} onRetry={() => summary.refetch()}>{data || summary.data ? <><div className="grid grid-cols-2 gap-3 sm:grid-cols-4"><Metric label="Rows" value={data?.rows ?? summary.data?.rows ?? '—'} detail="observations" icon={FileSpreadsheet} /><Metric label="Features" value={data?.columns ?? summary.data?.features ?? '—'} detail="candidate inputs" icon={SlidersHorizontal} /><Metric label="Missing" value={data?.missingValues ?? summary.data?.missingValues ?? '—'} detail="values to review" icon={TriangleAlert} tone={data?.missingValues ? 'amber' : 'green'} /><Metric label="Duplicates" value={data?.duplicateRows ?? '—'} detail="repeated rows" icon={Layers3} /></div><div className="mt-6 rounded-xl border border-[#eee7df] p-4"><div className="flex items-center justify-between"><div><div className="text-xs font-extrabold">Select prediction target</div><p className="mt-1 text-[11px] text-[#847b72]">Re-profile the dataset after changing the target.</p></div><button data-testid="button-profile-dataset" onClick={applyTarget} disabled={profile.isPending || !target || !datasetId} className="rounded-lg border border-[#d9c8bf] px-3 py-2 text-[11px] font-bold text-[#8f322c] disabled:opacity-40">{profile.isPending ? 'Applying…' : 'Apply target'}</button></div><select data-testid="select-target-column" value={target || data?.targetColumn || ''} onChange={(e) => setTarget(e.target.value)} className="mt-4 w-full rounded-lg border border-[#ded4ca] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#b3342c]"><option value="">Choose a target column</option>{(data?.possibleTargets ?? [summary.data?.target].filter(Boolean) as string[]).map((item) => <option key={item} value={item}>{item}</option>)}</select></div><div className="mt-4 grid gap-4 sm:grid-cols-2"><div><div className="mono-label text-[#a1968b]">Numerical features</div><div className="mt-2 flex flex-wrap gap-1.5">{(data?.numericalFeatures ?? []).map((item) => <span key={item} className="rounded-md bg-[#f0ebe5] px-2 py-1 font-mono text-[10px] text-[#665e56]">{item}</span>)}</div></div><div><div className="mono-label text-[#a1968b]">Categorical features</div><div className="mt-2 flex flex-wrap gap-1.5">{(data?.categoricalFeatures ?? []).map((item) => <span key={item} className="rounded-md bg-[#f9e8e3] px-2 py-1 font-mono text-[10px] text-[#994039]">{item}</span>)}</div></div></div></> : <EmptyState icon={Database} title="No profile loaded" body="Use the built-in demo or upload a structured dataset to inspect readiness." />}</QueryState></div></Panel></div>
     <Panel className="mt-6" eyebrow="Class balance" title="Target distribution"><div className="p-5">{data?.classDistribution?.length ? <div className="grid gap-3 sm:grid-cols-3">{data.classDistribution.map((item) => <div key={item.label} className="rounded-xl bg-[#faf6f1] p-4"><div className="flex items-center justify-between"><span className="text-xs font-bold">{cap(item.label)}</span><span className="font-mono text-xs text-[#8b8178]">{item.count}</span></div><div className="mt-3 h-1.5 rounded-full bg-[#e8ded5]"><div className="h-full rounded-full bg-[#b3342c]" style={{ width: `${item.percentage}%` }} /></div><div className="mt-2 text-[11px] text-[#8d8379]">{item.percentage.toFixed(1)}% of rows</div></div>)}</div> : <EmptyState icon={BarChart3} title="Target classes not profiled" body="Choose a target column to see class balance." />}</div></Panel>
   </div>;
 }
 
 function AnalysisPage() {
+  const qc = useQueryClient();
   const analysis = useGetAnalysisSummary();
   const results = useGetModelResults({ query: { queryKey: getGetModelResultsQueryKey() } });
   const train = useTrainModels();
@@ -162,8 +253,21 @@ function AnalysisPage() {
   const [target, setTarget] = useState('');
   const data = analysis.data;
   const modelData = results.data?.models ?? data?.modelResults ?? [];
-  const startTraining = () => { const targetColumn = target || dashboard.data?.target; if (dashboard.data?.dataset && targetColumn) train.mutate({ data: { datasetId: dashboard.data.dataset, targetColumn } }); };
-  return <div className="rise-in"><PageIntro eyebrow="Model evidence" title="Analysis" description="Read the health distribution, benchmark alternatives, and inspect which signals carry the model's decision."><div className="flex gap-2"><input data-testid="input-analysis-target" value={target} onChange={(e) => setTarget(e.target.value)} placeholder={dashboard.data?.target ?? 'target column'} className="w-36 rounded-xl border border-[#d9cfc5] bg-[#fffdfa] px-3 py-3 text-xs outline-none focus:border-[#b3342c]" /><button data-testid="button-train-models" onClick={startTraining} disabled={train.isPending || !dashboard.data?.dataset} className="inline-flex items-center gap-2 rounded-xl bg-[#b3342c] px-4 py-3 text-xs font-extrabold text-white disabled:opacity-50">{train.isPending ? 'Training…' : 'Train & compare'} <BrainCircuit className="h-4 w-4" /></button></div></PageIntro><QueryState loading={analysis.isLoading || results.isLoading} error={analysis.isError && results.isError} onRetry={() => { analysis.refetch(); results.refetch(); }}><div className="grid gap-6 xl:grid-cols-[.85fr_1.15fr]"><Panel eyebrow="01 / Distribution" title="Health labels"><div className="p-5">{data?.distribution?.length ? <div className="space-y-4">{data.distribution.map((item) => <div key={item.label} className="flex items-center gap-3"><div className="w-20 text-xs font-bold">{cap(item.label)}</div><div className="h-3 flex-1 rounded-full bg-[#eee8e1]"><div className="h-full rounded-full bg-[#b3342c]" style={{ width: `${item.percentage}%` }} /></div><div className="w-16 text-right font-mono text-xs text-[#81786f]">{item.count} / {item.percentage.toFixed(1)}%</div></div>)}</div> : <EmptyState icon={BarChart3} title="No class distribution" body="Profile a dataset before analysing its target." />}</div></Panel><Panel eyebrow="02 / Benchmark" title="Model comparison" action={<span className="mono-label text-[#9d9287]">{modelData.length} candidates</span>}><div className="overflow-x-auto"><table className="w-full min-w-[680px] text-left text-xs"><thead className="bg-[#faf6f1] text-[10px] uppercase tracking-[.1em] text-[#9d9287]"><tr><th className="px-5 py-3">Model</th><th className="px-3 py-3">Accuracy</th><th className="px-3 py-3">Precision</th><th className="px-3 py-3">Recall</th><th className="px-3 py-3">F1</th><th className="px-3 py-3" /></tr></thead><tbody className="divide-y divide-[#eee7df]">{modelData.map((model) => <tr key={model.name} className={cx('hover:bg-[#fcf8f4]', model.selected && 'bg-[#fff4f0]')}><td className="px-5 py-4"><div className="font-extrabold">{model.name}</div><div className="mt-1 text-[10px] text-[#8d8379]">{model.note}</div></td><td className="px-3 py-4 font-mono">{formatPct(model.accuracy)}</td><td className="px-3 py-4 font-mono">{formatPct(model.precision)}</td><td className="px-3 py-4 font-mono">{formatPct(model.recall)}</td><td className="px-3 py-4 font-mono font-bold">{formatPct(model.f1)}</td><td className="px-3 py-4">{model.selected && <span className="rounded-full bg-[#b3342c] px-2 py-1 text-[10px] font-bold text-white">Selected</span>}</td></tr>)}</tbody></table>{!modelData.length && <EmptyState icon={BrainCircuit} title="No trained models" body="Train the first comparison set after selecting a target." />}</div></Panel></div><div className="mt-6 grid gap-6 lg:grid-cols-2"><Panel eyebrow="03 / Error map" title="Confusion matrix"><div className="p-5">{results.data?.confusionMatrix?.length ? <div className="overflow-x-auto"><div className="grid min-w-[330px] grid-cols-[110px_repeat(3,1fr)] gap-1 text-center text-xs">{[null, ...(results.data.confusionLabels ?? [])].map((label, i) => <div key={`h-${i}`} className="p-2 font-mono text-[10px] text-[#90867c]">{label ? `Pred ${label}` : ''}</div>)}{results.data.confusionMatrix.map((row, i) => <><div key={`r-${i}`} className="p-3 text-left font-mono text-[10px] text-[#90867c]">Actual {results.data?.confusionLabels?.[i]}</div>{row.map((value, j) => <div key={`${i}-${j}`} className={cx('grid min-h-14 place-items-center rounded-lg font-mono text-sm font-bold', i === j ? 'bg-[#dceee6] text-[#26694e]' : 'bg-[#f8e1dc] text-[#a3372e]')} style={{ opacity: .55 + Math.min(value / 10, .45) }}>{value}</div>)}</>)}</div></div> : <EmptyState icon={Crosshair} title="Confusion matrix unavailable" body="The selected model will expose errors after training." />}</div></Panel><Panel eyebrow="04 / Signal attribution" title="Feature importance"><div className="p-5">{(results.data?.featureImportance ?? data?.topFeatures ?? []).length ? <div className="space-y-3">{(results.data?.featureImportance ?? data?.topFeatures ?? []).slice(0, 8).map((item) => <div key={item.feature}><div className="mb-1 flex justify-between text-xs"><span className="font-bold">{item.feature}</span><span className="font-mono text-[#8b8178]">{item.importance.toFixed(3)}</span></div><div className="h-2 rounded-full bg-[#eee8e1]"><div className="h-full rounded-full bg-[#b3342c]" style={{ width: `${Math.min(item.importance * 100, 100)}%` }} /></div></div>)}</div> : <EmptyState icon={SlidersHorizontal} title="No feature ranking" body="Train a model to surface the signals that matter most." />}</div></Panel></div></QueryState></div>;
+  const startTraining = () => {
+    const targetColumn = target || dashboard.data?.target || 'HealthState';
+    const datasetId = dashboard.data?.dataset || 'demo-fleet';
+    train.mutate(
+      { data: { datasetId, targetColumn } },
+      {
+        onSuccess: () => {
+          qc.invalidateQueries({ queryKey: getGetModelResultsQueryKey() });
+          qc.invalidateQueries({ queryKey: getGetAnalysisSummaryQueryKey() });
+          qc.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+        },
+      }
+    );
+  };
+  return <div className="rise-in"><PageIntro eyebrow="Model evidence" title="Analysis" description="Read the health distribution, benchmark alternatives, and inspect which signals carry the model's decision."><div className="flex gap-2"><input data-testid="input-analysis-target" value={target} onChange={(e) => setTarget(e.target.value)} placeholder={dashboard.data?.target ?? 'target column'} className="w-36 rounded-xl border border-[#d9cfc5] bg-[#fffdfa] px-3 py-3 text-xs outline-none focus:border-[#b3342c]" /><button data-testid="button-train-models" onClick={startTraining} disabled={train.isPending} className="inline-flex items-center gap-2 rounded-xl bg-[#b3342c] px-4 py-3 text-xs font-extrabold text-white disabled:opacity-50">{train.isPending ? 'Training…' : 'Train & compare'} <BrainCircuit className="h-4 w-4" /></button></div></PageIntro><QueryState loading={analysis.isLoading || results.isLoading} error={analysis.isError && results.isError} onRetry={() => { analysis.refetch(); results.refetch(); }}><div className="grid gap-6 xl:grid-cols-[.85fr_1.15fr]"><Panel eyebrow="01 / Distribution" title="Health labels"><div className="p-5">{data?.distribution?.length ? <div className="space-y-4">{data.distribution.map((item) => <div key={item.label} className="flex items-center gap-3"><div className="w-20 text-xs font-bold">{cap(item.label)}</div><div className="h-3 flex-1 rounded-full bg-[#eee8e1]"><div className="h-full rounded-full bg-[#b3342c]" style={{ width: `${item.percentage}%` }} /></div><div className="w-16 text-right font-mono text-xs text-[#81786f]">{item.count} / {item.percentage.toFixed(1)}%</div></div>)}</div> : <EmptyState icon={BarChart3} title="No class distribution" body="Profile a dataset before analysing its target." />}</div></Panel><Panel eyebrow="02 / Benchmark" title="Model comparison" action={<span className="mono-label text-[#9d9287]">{modelData.length} candidates</span>}><div className="overflow-x-auto"><table className="w-full min-w-[680px] text-left text-xs"><thead className="bg-[#faf6f1] text-[10px] uppercase tracking-[.1em] text-[#9d9287]"><tr><th className="px-5 py-3">Model</th><th className="px-3 py-3">Accuracy</th><th className="px-3 py-3">Precision</th><th className="px-3 py-3">Recall</th><th className="px-3 py-3">F1</th><th className="px-3 py-3" /></tr></thead><tbody className="divide-y divide-[#eee7df]">{modelData.map((model) => <tr key={model.name} className={cx('hover:bg-[#fcf8f4]', model.selected && 'bg-[#fff4f0]')}><td className="px-5 py-4"><div className="font-extrabold">{model.name}</div><div className="mt-1 text-[10px] text-[#8d8379]">{model.note}</div></td><td className="px-3 py-4 font-mono">{formatPct(model.accuracy)}</td><td className="px-3 py-4 font-mono">{formatPct(model.precision)}</td><td className="px-3 py-4 font-mono">{formatPct(model.recall)}</td><td className="px-3 py-4 font-mono font-bold">{formatPct(model.f1)}</td><td className="px-3 py-4">{model.selected && <span className="rounded-full bg-[#b3342c] px-2 py-1 text-[10px] font-bold text-white">Selected</span>}</td></tr>)}</tbody></table>{!modelData.length && <EmptyState icon={BrainCircuit} title="No trained models" body="Train the first comparison set after selecting a target." />}</div></Panel></div><div className="mt-6 grid gap-6 lg:grid-cols-2"><Panel eyebrow="03 / Error map" title="Confusion matrix"><div className="p-5">{results.data?.confusionMatrix?.length ? <div className="overflow-x-auto"><div className="grid min-w-[330px] grid-cols-[110px_repeat(3,1fr)] gap-1 text-center text-xs">{[null, ...(results.data.confusionLabels ?? [])].map((label, i) => <div key={`h-${i}`} className="p-2 font-mono text-[10px] text-[#90867c]">{label ? `Pred ${label}` : ''}</div>)}{results.data.confusionMatrix.map((row, i) => <div key={`cm-row-${i}`} className="contents"><div key={`r-${i}`} className="p-3 text-left font-mono text-[10px] text-[#90867c]">Actual {results.data?.confusionLabels?.[i]}</div>{row.map((value, j) => <div key={`cm-cell-${i}-${j}`} className={cx('grid min-h-14 place-items-center rounded-lg font-mono text-sm font-bold', i === j ? 'bg-[#dceee6] text-[#26694e]' : 'bg-[#f8e1dc] text-[#a3372e]')} style={{ opacity: .55 + Math.min(value / 10, .45) }}>{value}</div>)}</div>)}</div></div> : <EmptyState icon={Crosshair} title="Confusion matrix unavailable" body="The selected model will expose errors after training." />}</div></Panel><Panel eyebrow="04 / Signal attribution" title="Feature importance"><div className="p-5">{(results.data?.featureImportance ?? data?.topFeatures ?? []).length ? <div className="space-y-3">{(results.data?.featureImportance ?? data?.topFeatures ?? []).slice(0, 8).map((item) => <div key={item.feature}><div className="mb-1 flex justify-between text-xs"><span className="font-bold">{item.feature}</span><span className="font-mono text-[#8b8178]">{item.importance.toFixed(3)}</span></div><div className="h-2 rounded-full bg-[#eee8e1]"><div className="h-full rounded-full bg-[#b3342c]" style={{ width: `${Math.min(item.importance * 100, 100)}%` }} /></div></div>)}</div> : <EmptyState icon={SlidersHorizontal} title="No feature ranking" body="Train a model to surface the signals that matter most." />}</div></Panel></div></QueryState></div>;
 }
 
 function PredictPage() {

@@ -114,7 +114,11 @@ const demoDataset: Dataset = {
   targetColumn: "HealthState",
 };
 
-const datasets = new Map<string, Dataset>([[demoDataset.id, demoDataset]]);
+const datasets = new Map<string, Dataset>([
+  [demoDataset.id, demoDataset],
+  [demoDataset.name, demoDataset],
+  ["demo-fleet", demoDataset],
+]);
 let currentDatasetId = demoDataset.id;
 let currentTraining: TrainingResults;
 const predictions: Prediction[] = [
@@ -273,7 +277,13 @@ function profile(dataset: Dataset, requestedTarget?: string | null) {
   };
 }
 
-function getDataset() {
+function getDataset(id?: string): Dataset {
+  if (id) {
+    if (datasets.has(id)) return datasets.get(id)!;
+    const found = [...datasets.values()].find((d) => d.name === id || d.id === id);
+    if (found) return found;
+    if (id === "demo-fleet" || id === "demo-001" || id === demoDataset.name) return demoDataset;
+  }
   return datasets.get(currentDatasetId) ?? demoDataset;
 }
 
@@ -484,6 +494,7 @@ router.post("/dataset/upload", (req, res) => {
     targetColumn: parsed.data.targetColumn ?? null,
   };
   datasets.set(id, dataset);
+  datasets.set(dataset.name, dataset);
   currentDatasetId = id;
   currentTraining = train(dataset, profile(dataset).targetColumn ?? dataset.columns.at(-1)!);
   res.json(UploadDatasetResponse.parse(profile(dataset)));
@@ -495,7 +506,7 @@ router.post("/dataset/profile", (req, res) => {
     res.status(400).json({ error: "Select a valid target column before profiling the dataset." });
     return;
   }
-  const dataset = datasets.get(parsed.data.datasetId);
+  const dataset = getDataset(parsed.data.datasetId);
   if (!dataset || !dataset.columns.includes(parsed.data.targetColumn)) {
     res.status(400).json({ error: "That dataset or target column is no longer available." });
     return;
@@ -511,8 +522,11 @@ router.post("/model/train", (req, res) => {
     res.status(400).json({ error: "Choose a dataset and target column before training." });
     return;
   }
-  const dataset = datasets.get(parsed.data.datasetId);
-  if (!dataset || !dataset.columns.includes(parsed.data.targetColumn)) {
+  const dataset = getDataset(parsed.data.datasetId);
+  const targetCol = dataset.columns.includes(parsed.data.targetColumn)
+    ? parsed.data.targetColumn
+    : dataset.targetColumn ?? dataset.columns.at(-1)!;
+  if (!dataset || !targetCol) {
     res.status(400).json({ error: "The selected dataset or target column could not be found." });
     return;
   }
@@ -521,7 +535,7 @@ router.post("/model/train", (req, res) => {
     return;
   }
   currentDatasetId = dataset.id;
-  currentTraining = train(dataset, parsed.data.targetColumn);
+  currentTraining = train(dataset, targetCol);
   res.json(TrainModelsResponse.parse(currentTraining));
 });
 
@@ -535,7 +549,7 @@ router.post("/predict", (req, res) => {
     res.status(400).json({ error: "Enter at least one sensor value before predicting." });
     return;
   }
-  const dataset = datasets.get(parsed.data.datasetId);
+  const dataset = getDataset(parsed.data.datasetId);
   if (!dataset) {
     res.status(400).json({ error: "Load or upload a dataset before making a prediction." });
     return;
