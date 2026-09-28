@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: health-maintenance
+    runtime: node
+    plan: free
+    buildCommand: npm install -g pnpm && pnpm install && pnpm run build
+    startCommand: pnpm run start
+    healthCheckPath: /api/healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 22.20.0
