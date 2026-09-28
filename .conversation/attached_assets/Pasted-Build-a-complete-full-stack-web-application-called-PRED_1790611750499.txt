@@ -1,0 +1,1117 @@
+Build a complete full-stack web application called:
+
+PREDICTIVE MAINTENANCE
+"Identify Machine Health States using Machine Learning + RAG"
+
+The application must include BOTH frontend and backend and must be fully functional.
+
+==================================================
+1. CORE PROBLEM
+==================================================
+
+Problem Statement:
+
+"Predictive Maintenance – Identify machine health states."
+
+The application should accept a machine/industrial sensor dataset uploaded by the user, especially datasets downloaded from Kaggle.
+
+The system should analyze sensor and operational data and classify the health condition of a machine.
+
+Possible health states can include:
+
+- Healthy
+- Normal
+- Warning
+- At Risk
+- Critical
+- Failure
+
+IMPORTANT:
+
+Do NOT hardcode these classes if the uploaded dataset already contains a target/health-state column.
+
+The system should inspect the uploaded dataset and identify:
+
+- Numerical columns
+- Categorical columns
+- Possible target column
+- Missing values
+- Duplicate records
+- Sensor features
+- Machine-related features
+- Class distribution
+
+If the target column cannot be detected automatically, allow the user to select it manually.
+
+==================================================
+2. MACHINE LEARNING + RAG
+==================================================
+
+The project MUST use both Machine Learning and RAG.
+
+They must have separate responsibilities.
+
+MACHINE LEARNING:
+
+The ML model performs the actual machine-health classification.
+
+Pipeline:
+
+Dataset
+↓
+Data Validation
+↓
+Preprocessing
+↓
+Feature Engineering
+↓
+Train/Test Split
+↓
+Multiple Classification Algorithms
+↓
+Model Evaluation
+↓
+Best Validated Model
+↓
+Machine Health Prediction
+
+Recommended algorithms:
+
+1. Random Forest
+2. Logistic Regression
+3. Decision Tree
+4. K-Nearest Neighbors
+5. Gradient Boosting / XGBoost if available
+
+Compare models using:
+
+- Accuracy
+- Precision
+- Recall
+- F1 Score
+- Confusion Matrix
+
+Show the performance of every model.
+
+Do not simply hide the comparison.
+
+==================================================
+3. RAG SYSTEM
+==================================================
+
+Implement a Retrieval-Augmented Generation system.
+
+RAG should NOT perform the machine-health classification.
+
+RAG is responsible for:
+
+- Explaining machine health states
+- Retrieving maintenance knowledge
+- Explaining sensor conditions
+- Explaining possible causes
+- Providing maintenance recommendations
+- Answering questions about machine health
+- Providing contextual information based on retrieved documents
+
+Knowledge base should contain information about:
+
+- Predictive maintenance
+- Preventive maintenance
+- Machine condition monitoring
+- Vibration analysis
+- Temperature monitoring
+- Pressure monitoring
+- Motor health
+- Bearing failure
+- Lubrication problems
+- Overheating
+- Mechanical wear
+- Electrical faults
+- Sensor anomalies
+- Equipment failure
+- Maintenance strategies
+- Industrial condition monitoring
+
+RAG pipeline:
+
+Maintenance Documents
+↓
+Text Chunking
+↓
+Embeddings
+↓
+Vector Database
+↓
+Retriever
+↓
+Relevant Context
+↓
+LLM
+↓
+Maintenance Explanation
+
+Use a maintainable vector database such as:
+
+- ChromaDB
+OR
+- PostgreSQL + pgvector
+
+Choose the option that is easiest and most reliable in Replit.
+
+==================================================
+4. DATASET UPLOAD
+==================================================
+
+Create a prominent dataset upload section.
+
+Support:
+
+- CSV
+- XLSX / Excel
+
+The user should be able to upload a Kaggle predictive-maintenance dataset.
+
+Possible dataset columns may include:
+
+Temperature
+Pressure
+Vibration
+Rotational Speed
+Torque
+Voltage
+Current
+Humidity
+Operating Hours
+Machine Age
+Maintenance History
+Failure Type
+Machine Condition
+Health State
+
+BUT:
+
+DO NOT assume these exact columns.
+
+The application must automatically inspect the uploaded dataset.
+
+Show:
+
+Dataset name
+Rows
+Columns
+Missing values
+Duplicate rows
+Numerical features
+Categorical features
+Possible target column
+
+Allow manual target selection.
+
+==================================================
+5. DATA PREPROCESSING
+==================================================
+
+Implement a robust preprocessing pipeline.
+
+Handle:
+
+- Missing values
+- Duplicate rows
+- Categorical encoding
+- Numerical scaling where appropriate
+- Outliers
+- Date/time features if available
+- Train/test splitting
+
+Categorical variables:
+→ One-Hot Encoding
+
+Numerical variables:
+→ StandardScaler where appropriate
+
+IMPORTANT:
+
+Save the preprocessing pipeline together with the trained model so that prediction data receives exactly the same transformations.
+
+==================================================
+6. FEATURE ENGINEERING
+==================================================
+
+Automatically identify useful machine-health features.
+
+Examples:
+
+Temperature
+Vibration
+Pressure
+RPM
+Torque
+Voltage
+Current
+Operating Hours
+
+If timestamp/date information exists, derive:
+
+- Hour
+- Day
+- Weekday
+- Month
+- Operating period
+
+If appropriate, derive sensor relationships such as:
+
+- Temperature deviation
+- Vibration level
+- Load-related indicators
+- Operating-hour categories
+
+Do not create features that cannot be justified by the uploaded data.
+
+==================================================
+7. MACHINE HEALTH DASHBOARD
+==================================================
+
+Create a professional dashboard.
+
+Top section:
+
+PREDICTIVE MAINTENANCE
+
+"Monitor machine health, identify risks, and understand potential maintenance needs."
+
+Show summary cards:
+
++----------------------+
+| Machines / Records   |
++----------------------+
+
++----------------------+
+| Healthy              |
++----------------------+
+
++----------------------+
+| At Risk              |
++----------------------+
+
++----------------------+
+| Critical             |
++----------------------+
+
+Also show:
+
+Dataset
+Rows
+Features
+Target
+Missing Values
+
+==================================================
+8. HEALTH STATE DISTRIBUTION
+==================================================
+
+Create a chart showing:
+
+Machine Health Distribution
+
+Example:
+
+Healthy      █████████████
+Warning      ███████
+At Risk      ████
+Critical     ██
+
+The chart must use the actual uploaded dataset.
+
+Do not invent values.
+
+==================================================
+9. MODEL PERFORMANCE
+==================================================
+
+Create a Model Comparison section.
+
+Example:
+
+MODEL PERFORMANCE
+
+Model                  Accuracy   Precision   Recall   F1
+-----------------------------------------------------------
+Random Forest
+Logistic Regression
+Decision Tree
+KNN
+Gradient Boosting
+
+Add:
+
+- Confusion Matrix
+- Class Distribution
+- Accuracy comparison
+- Feature Importance
+
+The selected model should be based on validation performance.
+
+Show the model selection transparently.
+
+==================================================
+10. MACHINE HEALTH PREDICTION
+==================================================
+
+Create a dedicated:
+
+"Predict Machine Health"
+
+section.
+
+Allow the user to manually enter sensor values.
+
+For example:
+
+Temperature
+Vibration
+Pressure
+RPM
+Torque
+Voltage
+Current
+Operating Hours
+
+Then display:
+
+--------------------------------
+MACHINE HEALTH
+--------------------------------
+
+        AT RISK
+
+Confidence:
+87%
+
+--------------------------------
+
+Important contributing features:
+
+1. High vibration
+2. Elevated temperature
+3. Increased operating hours
+
+IMPORTANT:
+
+If these factors come from feature importance or explainability, clearly label them as model-derived indicators.
+
+Do not claim that the ML model proves actual physical causation.
+
+==================================================
+11. MACHINE HEALTH STATUS UI
+==================================================
+
+Use clear visual states.
+
+Healthy:
+Subtle green indicator
+
+Warning:
+Amber/yellow indicator
+
+At Risk:
+Orange indicator
+
+Critical:
+Red indicator
+
+However, keep the overall application palette:
+
+WHITE
++
+DEEP RED
++
+DARK CHARCOAL
+
+Health-state colors should be subtle and functional rather than dominating the UI.
+
+==================================================
+12. AI MAINTENANCE INSIGHT
+==================================================
+
+After prediction, display:
+
+"AI Maintenance Insight"
+
+Example:
+
+"The machine has been classified as AT RISK by the trained machine-learning model.
+
+The prediction is associated with elevated vibration and temperature measurements compared with patterns observed in the training data.
+
+According to the maintenance knowledge base, abnormal vibration can be associated with conditions such as imbalance, misalignment, bearing wear, or other mechanical issues.
+
+Further inspection is recommended before making a maintenance decision."
+
+IMPORTANT:
+
+The system must distinguish between:
+
+1. ML prediction
+2. Dataset-derived observations
+3. Retrieved maintenance knowledge
+4. LLM-generated explanation
+
+Never present an AI-generated explanation as a confirmed physical diagnosis.
+
+==================================================
+13. RAG CHATBOT
+==================================================
+
+Create a modern floating AI chatbot.
+
+Name:
+
+"Maintenance AI"
+
+Users can ask:
+
+"Why is this machine classified as at risk?"
+
+"What can cause high vibration?"
+
+"What does high temperature indicate?"
+
+"When should a bearing be inspected?"
+
+"What maintenance should be considered for this condition?"
+
+"Explain this prediction in simple terms."
+
+"What is the difference between preventive and predictive maintenance?"
+
+"What sensors are commonly used for machine condition monitoring?"
+
+The chatbot must retrieve relevant information from the RAG knowledge base before answering.
+
+Show:
+
+AI Response
+
+and below it:
+
+Sources Used
+
+The system should not fabricate sources.
+
+==================================================
+14. PREDICTION HISTORY
+==================================================
+
+Create a Prediction History page.
+
+Store:
+
+- Date/time
+- Machine ID if available
+- Input sensor values
+- Predicted health state
+- Confidence
+- Model used
+
+Example:
+
+---------------------------------------------------------
+TIME        MACHINE       HEALTH       CONFIDENCE
+---------------------------------------------------------
+10:32 AM    M-001         Healthy      94%
+10:48 AM    M-002         At Risk      86%
+11:03 AM    M-003         Warning      78%
+---------------------------------------------------------
+
+Allow the user to open a prediction and see its details.
+
+==================================================
+15. MACHINE OVERVIEW
+==================================================
+
+Create a Machines page.
+
+Each machine can have:
+
+Machine ID
+Machine Type
+Operating Hours
+Current Health
+Last Prediction
+Risk Level
+
+Example:
+
+MACHINE M-001
+
+Health:
+HEALTHY
+
+Operating Hours:
+4,230
+
+Latest Prediction:
+Healthy
+
+[View Details]
+
+==================================================
+16. MACHINE DETAIL PAGE
+==================================================
+
+When a machine is selected, show:
+
+Machine Information
+
+Health Status
+
+Sensor Trends
+
+Temperature
+Vibration
+Pressure
+RPM
+Torque
+
+Create time-series charts if timestamp data exists.
+
+Show:
+
+- Sensor trends
+- Recent predictions
+- Health-state history
+- Important features
+- AI maintenance insight
+
+==================================================
+17. MAINTENANCE INSIGHTS
+==================================================
+
+Create a dedicated:
+
+"Maintenance Insights"
+
+page.
+
+Show categories:
+
+Potential Risk
+Sensor Anomaly
+Maintenance Knowledge
+Recommended Inspection
+Historical Pattern
+
+Example:
+
+HIGH VIBRATION
+
+"Vibration values are elevated compared with the training-data distribution."
+
+Then:
+
+RAG Knowledge:
+
+"Abnormal vibration may be associated with mechanical imbalance, misalignment, bearing wear, or other equipment conditions."
+
+Then:
+
+Suggested action:
+
+"Inspect the relevant mechanical components according to the organization's maintenance procedures."
+
+Do NOT present suggestions as guaranteed diagnoses.
+
+==================================================
+18. 3D LOGO
+==================================================
+
+Create a modern 3D logo for:
+
+PREDICTIVE MAINTENANCE
+
+Logo concept:
+
+A stylized 3D mechanical gear combined with:
+
+- Sensor waves
+- Circuit lines
+- Machine outline
+- Pulse/health signal
+
+The logo should communicate:
+
+Machine
++
+Data
++
+AI
++
+Maintenance
+
+Use:
+
+White
+Deep Red
+Dark metallic accents
+
+Use subtle 3D depth and shadows.
+
+If appropriate, use:
+
+Three.js
+React Three Fiber
+
+Otherwise create a polished pseudo-3D SVG/CSS logo.
+
+Do NOT create a cartoon-style gear.
+
+Keep it premium, technical and minimal.
+
+==================================================
+19. UI / UX DESIGN
+==================================================
+
+The UI must be:
+
+- Minimal
+- Elegant
+- Professional
+- Modern
+- Clean
+- Technical
+- Academic/research oriented
+
+Color palette:
+
+WHITE
+DEEP RED / CRIMSON
+VERY LIGHT RED/PINK
+DARK CHARCOAL
+
+Use lots of white space.
+
+Use:
+
+- Rounded cards
+- Thin borders
+- Subtle shadows
+- Clean typography
+- Minimal animations
+- Consistent spacing
+
+Avoid:
+
+- Neon colors
+- Excessive gradients
+- Excessive glassmorphism
+- Clutter
+- Cartoon graphics
+- Excessive animations
+
+==================================================
+20. UPLOADED TEXTURE
+==================================================
+
+I have provided a pale white/red geometric texture.
+
+Use this texture subtly in the application.
+
+Use it primarily for:
+
+- Hero section
+- Landing page background
+- Section transitions
+- Very subtle dashboard background accents
+
+DO NOT use the texture heavily behind charts or tables.
+
+The analytics interface should remain clean and readable.
+
+==================================================
+21. LANDING PAGE
+==================================================
+
+Create a premium landing page.
+
+Hero:
+
+PREDICTIVE
+MAINTENANCE
+
+"Identify machine health states using Machine Learning and RAG."
+
+Subtext:
+
+"Upload your machine sensor dataset, train classification models, identify machine health states, and receive AI-powered maintenance insights."
+
+Buttons:
+
+[ Upload Dataset ]
+
+[ Try Demo ]
+
+Hero visual:
+
+3D mechanical gear + sensor visualization.
+
+==================================================
+22. NAVIGATION
+==================================================
+
+Navbar:
+
+[3D LOGO] PREDICTIVE MAINTENANCE
+
+Dashboard
+Machines
+Dataset
+Analysis
+Predictions
+Models
+AI Insights
+
+Right:
+
+[Upload Dataset]
+
+Keep navbar minimal.
+
+==================================================
+23. BACKEND
+==================================================
+
+Use:
+
+Python
+FastAPI
+pandas
+numpy
+scikit-learn
+
+Optional:
+
+XGBoost
+SHAP
+
+For RAG:
+
+LangChain or LlamaIndex
+
+Use environment variables for API keys.
+
+Never hardcode API keys.
+
+Example:
+
+.env
+
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+
+LLM_API_KEY=
+EMBEDDING_API_KEY=
+
+==================================================
+24. SUPABASE
+==================================================
+
+Use Supabase for:
+
+- Authentication
+- Dataset metadata
+- Prediction history
+- Training runs
+- Machine records
+- RAG document metadata
+- User/project information
+
+Use Supabase Storage for uploaded datasets if appropriate.
+
+IMPORTANT:
+
+Never expose the Supabase service-role key to the frontend.
+
+Use the public/publishable/anon key for frontend operations where appropriate.
+
+Use the service-role key only on the secure backend when privileged operations are genuinely required.
+
+==================================================
+25. API ENDPOINTS
+==================================================
+
+Create:
+
+POST /api/dataset/upload
+
+POST /api/dataset/profile
+
+POST /api/model/train
+
+GET /api/model/results
+
+POST /api/predict
+
+GET /api/predictions
+
+GET /api/machines
+
+GET /api/machines/{machine_id}
+
+GET /api/analysis/summary
+
+POST /api/rag/query
+
+GET /api/rag/sources
+
+GET /api/health
+
+==================================================
+26. DATABASE TABLES
+==================================================
+
+Create appropriate Supabase tables such as:
+
+users
+
+datasets
+
+machines
+
+training_runs
+
+model_results
+
+predictions
+
+sensor_readings
+
+rag_documents
+
+chat_history
+
+Keep the schema simple and normalized.
+
+==================================================
+27. DEMO DATASET
+==================================================
+
+Include a built-in sample predictive-maintenance dataset.
+
+Create:
+
+[ TRY DEMO DATASET ]
+
+The demo should allow the entire pipeline to work without uploading a file.
+
+Flow:
+
+Demo Dataset
+↓
+Profiling
+↓
+Preprocessing
+↓
+Training
+↓
+Model Comparison
+↓
+Prediction
+↓
+RAG Explanation
+
+Clearly label demo data as:
+
+"Demo Dataset"
+
+Do not claim that demo values represent real industrial equipment.
+
+==================================================
+28. ERROR HANDLING
+==================================================
+
+Handle:
+
+- Invalid CSV
+- Invalid Excel
+- Empty dataset
+- Missing target
+- Target detection failure
+- Missing sensor values
+- Too few samples
+- Unsupported data types
+- Model training errors
+- RAG errors
+- API errors
+- Supabase errors
+
+Show user-friendly messages.
+
+Example:
+
+"Health-state column could not be detected. Please select the target column manually."
+
+==================================================
+29. RESPONSIVE DESIGN
+==================================================
+
+Application must work on:
+
+Desktop
+Laptop
+Tablet
+Mobile
+
+Charts should resize properly.
+
+Tables should remain usable on smaller screens.
+
+==================================================
+30. PROJECT STRUCTURE
+==================================================
+
+Use a clean structure:
+
+/frontend
+  /components
+  /pages
+  /dashboard
+  /charts
+  /api
+  /assets
+
+/backend
+  /api
+  /ml
+  /models
+  /preprocessing
+  /rag
+  /database
+  /utils
+
+/data
+  /sample
+
+Keep ML, RAG, API and UI logic separated.
+
+==================================================
+31. COMPLETE USER FLOW
+==================================================
+
+Landing Page
+        ↓
+Upload Kaggle Dataset
+        ↓
+Dataset Profiling
+        ↓
+Select Target Column
+        ↓
+Data Preprocessing
+        ↓
+Feature Engineering
+        ↓
+Train ML Models
+        ↓
+Compare Models
+        ↓
+Select Validated Model
+        ↓
+Machine Health Prediction
+        ↓
+Feature Importance
+        ↓
+RAG Maintenance Explanation
+        ↓
+AI Maintenance Chat
+        ↓
+Prediction History
+        ↓
+Machine Health Monitoring
+
+==================================================
+32. ACADEMIC REQUIREMENTS
+==================================================
+
+This is an academic Machine Learning project.
+
+The application should demonstrate:
+
+1. Dataset collection
+2. Dataset upload
+3. Data preprocessing
+4. Exploratory Data Analysis
+5. Feature engineering
+6. Classification
+7. Multiple ML algorithms
+8. Model comparison
+9. Accuracy
+10. Precision
+11. Recall
+12. F1-score
+13. Confusion matrix
+14. Feature importance
+15. Machine health prediction
+16. RAG
+17. Knowledge retrieval
+18. AI-generated contextual explanation
+
+The project must clearly demonstrate that:
+
+ML = prediction
+
+RAG = knowledge retrieval + contextual explanation
+
+Do not claim that RAG predicts machine health.
+
+==================================================
+33. IMPORTANT IMPLEMENTATION REQUIREMENT
+==================================================
+
+The application must be DATASET-AGNOSTIC.
+
+Do not build the entire system around one fixed Kaggle dataset.
+
+When the user uploads a new compatible dataset:
+
+1. Inspect the columns
+2. Detect possible target
+3. Ask the user to confirm target if necessary
+4. Identify numerical/categorical features
+5. Preprocess automatically
+6. Train models
+7. Evaluate models
+8. Generate predictions
+9. Connect prediction context to RAG
+10. Display results
+
+This is one of the most important requirements.
+
+==================================================
+34. FINAL BUILD
+==================================================
+
+Build the complete application in Replit.
+
+Do not create fake buttons.
+
+Do not leave major features as placeholders.
+
+Make the complete workflow functional.
+
+Create:
+
+- Frontend
+- Backend
+- ML pipeline
+- RAG pipeline
+- Supabase integration
+- Demo dataset
+- Charts
+- 3D logo
+- Texture integration
+- API routes
+- Database schema
+- README
+- Environment variable example
+
+The final application should feel like a polished academic AI/ML predictive-maintenance platform rather than a simple CRUD dashboard.

@@ -10,6 +10,18 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: dashboard
+    description: Dashboard and analysis operations
+  - name: datasets
+    description: Dataset ingestion and profiling
+  - name: models
+    description: Model training and evaluation
+  - name: predictions
+    description: Machine-health predictions
+  - name: machines
+    description: Machine monitoring
+  - name: rag
+    description: Maintenance knowledge retrieval
 paths:
   /healthz:
     get:
@@ -24,6 +36,228 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get dashboard summary
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+  /analysis/summary:
+    get:
+      operationId: getAnalysisSummary
+      tags: [dashboard]
+      summary: Get analysis summary
+      responses:
+        "200":
+          description: Analysis summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisSummary"
+  /dataset/demo:
+    post:
+      operationId: loadDemoDataset
+      tags: [datasets]
+      summary: Load the built-in demo dataset
+      responses:
+        "200":
+          description: Demo dataset and profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetProfile"
+  /dataset/upload:
+    post:
+      operationId: uploadDataset
+      tags: [datasets]
+      summary: Upload a parsed CSV or spreadsheet dataset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DatasetUploadInput"
+      responses:
+        "200":
+          description: Uploaded dataset profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetProfile"
+        "400":
+          description: Invalid dataset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /dataset/profile:
+    post:
+      operationId: profileDataset
+      tags: [datasets]
+      summary: Re-profile a dataset after target selection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DatasetProfileInput"
+      responses:
+        "200":
+          description: Dataset profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DatasetProfile"
+  /model/train:
+    post:
+      operationId: trainModels
+      tags: [models]
+      summary: Train and compare classification models
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrainModelInput"
+      responses:
+        "200":
+          description: Training run and model comparison
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingResults"
+        "400":
+          description: Training error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /model/results:
+    get:
+      operationId: getModelResults
+      tags: [models]
+      summary: Get the latest model results
+      responses:
+        "200":
+          description: Latest training results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrainingResults"
+  /predict:
+    post:
+      operationId: createPrediction
+      tags: [predictions]
+      summary: Predict machine health from sensor values
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PredictInput"
+      responses:
+        "200":
+          description: Prediction result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Prediction"
+        "400":
+          description: Prediction error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /predictions:
+    get:
+      operationId: getPredictions
+      tags: [predictions]
+      summary: List prediction history
+      responses:
+        "200":
+          description: Prediction history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Prediction"
+  /machines:
+    get:
+      operationId: getMachines
+      tags: [machines]
+      summary: List monitored machines
+      responses:
+        "200":
+          description: Machine records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Machine"
+  /machines/{machineId}:
+    get:
+      operationId: getMachine
+      tags: [machines]
+      summary: Get machine detail
+      parameters:
+        - name: machineId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Machine detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MachineDetail"
+        "404":
+          description: Machine not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /rag/query:
+    post:
+      operationId: queryMaintenanceKnowledge
+      tags: [rag]
+      summary: Ask the maintenance knowledge assistant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RagQueryInput"
+      responses:
+        "200":
+          description: Grounded maintenance response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RagResponse"
+  /rag/sources:
+    get:
+      operationId: getRagSources
+      tags: [rag]
+      summary: List maintenance knowledge sources
+      responses:
+        "200":
+          description: Knowledge sources
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RagSource"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +267,315 @@ components:
           type: string
       required:
         - status
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+    DatasetUploadInput:
+      type: object
+      properties:
+        name:
+          type: string
+        columns:
+          type: array
+          items:
+            type: string
+        rows:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        targetColumn:
+          type: ["string", "null"]
+      required: [name, columns, rows]
+    DatasetProfileInput:
+      type: object
+      properties:
+        datasetId:
+          type: string
+        targetColumn:
+          type: string
+      required: [datasetId, targetColumn]
+    DatasetProfile:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        isDemo:
+          type: boolean
+        rows:
+          type: integer
+        columns:
+          type: integer
+        columnNames:
+          type: array
+          items:
+            type: string
+        numericalFeatures:
+          type: array
+          items:
+            type: string
+        categoricalFeatures:
+          type: array
+          items:
+            type: string
+        targetColumn:
+          type: ["string", "null"]
+        possibleTargets:
+          type: array
+          items:
+            type: string
+        missingValues:
+          type: integer
+        duplicateRows:
+          type: integer
+        classDistribution:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClassCount"
+      required: [id, name, isDemo, rows, columns, columnNames, numericalFeatures, categoricalFeatures, targetColumn, possibleTargets, missingValues, duplicateRows, classDistribution]
+    ClassCount:
+      type: object
+      properties:
+        label:
+          type: string
+        count:
+          type: integer
+        percentage:
+          type: number
+      required: [label, count, percentage]
+    TrainModelInput:
+      type: object
+      properties:
+        datasetId:
+          type: string
+        targetColumn:
+          type: string
+      required: [datasetId, targetColumn]
+    ModelResult:
+      type: object
+      properties:
+        name:
+          type: string
+        accuracy:
+          type: number
+        precision:
+          type: number
+        recall:
+          type: number
+        f1:
+          type: number
+        selected:
+          type: boolean
+        note:
+          type: string
+      required: [name, accuracy, precision, recall, f1, selected, note]
+    FeatureImportance:
+      type: object
+      properties:
+        feature:
+          type: string
+        importance:
+          type: number
+      required: [feature, importance]
+    TrainingResults:
+      type: object
+      properties:
+        id:
+          type: string
+        trainedAt:
+          type: string
+        targetColumn:
+          type: string
+        selectedModel:
+          type: string
+        models:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModelResult"
+        confusionMatrix:
+          type: array
+          items:
+            type: array
+            items:
+              type: integer
+        confusionLabels:
+          type: array
+          items:
+            type: string
+        featureImportance:
+          type: array
+          items:
+            $ref: "#/components/schemas/FeatureImportance"
+      required: [id, trainedAt, targetColumn, selectedModel, models, confusionMatrix, confusionLabels, featureImportance]
+    PredictInput:
+      type: object
+      properties:
+        datasetId:
+          type: string
+        machineId:
+          type: ["string", "null"]
+        values:
+          type: object
+          additionalProperties:
+            type: ["number", "string", "null"]
+      required: [datasetId, values]
+    Prediction:
+      type: object
+      properties:
+        id:
+          type: string
+        createdAt:
+          type: string
+        machineId:
+          type: ["string", "null"]
+        health:
+          type: string
+        confidence:
+          type: number
+        model:
+          type: string
+        values:
+          type: object
+          additionalProperties:
+            type: ["number", "string", "null"]
+        indicators:
+          type: array
+          items:
+            type: string
+        insight:
+          type: string
+      required: [id, createdAt, machineId, health, confidence, model, values, indicators, insight]
+    Machine:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        operatingHours:
+          type: number
+        health:
+          type: string
+        risk:
+          type: string
+        lastPrediction:
+          type: string
+        lastSeen:
+          type: string
+      required: [id, type, operatingHours, health, risk, lastPrediction, lastSeen]
+    MachineDetail:
+      allOf:
+        - $ref: "#/components/schemas/Machine"
+        - type: object
+          properties:
+            sensorTrends:
+              type: array
+              items:
+                $ref: "#/components/schemas/SensorTrend"
+            predictions:
+              type: array
+              items:
+                $ref: "#/components/schemas/Prediction"
+            featureImportance:
+              type: array
+              items:
+                $ref: "#/components/schemas/FeatureImportance"
+            insight:
+              type: string
+          required: [sensorTrends, predictions, featureImportance, insight]
+    SensorTrend:
+      type: object
+      properties:
+        timestamp:
+          type: string
+        temperature:
+          type: number
+        vibration:
+          type: number
+        pressure:
+          type: number
+        rpm:
+          type: number
+      required: [timestamp, temperature, vibration, pressure, rpm]
+    DashboardSummary:
+      type: object
+      properties:
+        machines:
+          type: integer
+        healthy:
+          type: integer
+        atRisk:
+          type: integer
+        critical:
+          type: integer
+        totalPredictions:
+          type: integer
+        dataset:
+          type: string
+        rows:
+          type: integer
+        features:
+          type: integer
+        target:
+          type: ["string", "null"]
+        missingValues:
+          type: integer
+        lastUpdated:
+          type: string
+      required: [machines, healthy, atRisk, critical, totalPredictions, dataset, rows, features, target, missingValues, lastUpdated]
+    AnalysisSummary:
+      type: object
+      properties:
+        distribution:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClassCount"
+        modelResults:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModelResult"
+        topFeatures:
+          type: array
+          items:
+            $ref: "#/components/schemas/FeatureImportance"
+      required: [distribution, modelResults, topFeatures]
+    RagQueryInput:
+      type: object
+      properties:
+        query:
+          type: string
+        predictionId:
+          type: ["string", "null"]
+      required: [query]
+    RagSource:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        category:
+          type: string
+        excerpt:
+          type: string
+      required: [id, title, category, excerpt]
+    RagResponse:
+      type: object
+      properties:
+        answer:
+          type: string
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/RagSource"
+        retrievedTopics:
+          type: array
+          items:
+            type: string
+      required: [answer, sources, retrievedTopics]
 

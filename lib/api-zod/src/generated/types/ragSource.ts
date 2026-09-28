@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface RagSource {
+  id: string;
+  title: string;
+  category: string;
+  excerpt: string;
 }

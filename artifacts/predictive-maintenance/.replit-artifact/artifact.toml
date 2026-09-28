@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Predictive Maintenance"
+description = "A full-stack predictive maintenance workspace for profiling industrial sensor datasets, comparing health-classification models, making machine predictions, and grounding maintenance explanations in a knowledge base."
+version = "1.0.0"
+id = "artifacts/predictive-maintenance"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25085
+
+[services.development]
+run = "pnpm --filter @workspace/predictive-maintenance run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/predictive-maintenance", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/predictive-maintenance/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25085"
+BASE_PATH = "/"
