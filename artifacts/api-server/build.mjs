@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
 import { rm } from "node:fs/promises";
+import fs from "node:fs";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
@@ -118,6 +119,63 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     `,
     },
   });
+
+  await esbuild({
+    entryPoints: [{ in: path.resolve(artifactDir, "src/app.ts"), out: "index" }],
+    platform: "node",
+    bundle: true,
+    format: "esm",
+    outdir: path.resolve(artifactDir, "../../api"),
+    outExtension: { ".js": ".js" },
+    logLevel: "info",
+    external: [
+      "*.node",
+      "sharp",
+      "better-sqlite3",
+      "sqlite3",
+      "canvas",
+      "bcrypt",
+      "argon2",
+      "fsevents",
+      "re2",
+      "farmhash",
+      "xxhash-addon",
+      "bufferutil",
+      "utf-8-validate",
+      "ssh2",
+      "cpu-features",
+      "dtrace-provider",
+      "isolated-vm",
+      "lightningcss",
+      "pg-native",
+    ],
+    sourcemap: "linked",
+    plugins: [
+      esbuildPluginPino({ transports: ["pino-pretty"] })
+    ],
+    banner: {
+      js: `import { createRequire as __bannerCrReq } from 'node:module';
+import __bannerPath from 'node:path';
+import __bannerUrl from 'node:url';
+
+globalThis.require = __bannerCrReq(import.meta.url);
+globalThis.__filename = __bannerUrl.fileURLToPath(import.meta.url);
+globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
+    `,
+    },
+  });
+
+  // Populate root public and dist directories for Vercel
+  const publicDist = path.resolve(artifactDir, "../predictive-maintenance/dist/public");
+  if (fs.existsSync(publicDist)) {
+    const rootPublic = path.resolve(artifactDir, "../../public");
+    fs.mkdirSync(rootPublic, { recursive: true });
+    fs.cpSync(publicDist, rootPublic, { recursive: true });
+
+    const rootDist = path.resolve(artifactDir, "../../dist");
+    fs.mkdirSync(rootDist, { recursive: true });
+    fs.cpSync(publicDist, rootDist, { recursive: true });
+  }
 }
 
 buildAll().catch((err) => {
