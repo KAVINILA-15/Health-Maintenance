@@ -1,6 +1,7 @@
 {
   "name": "workspace",
   "version": "0.0.0",
+  "type": "module",
   "license": "MIT",
   "scripts": {
     "build": "pnpm --filter @workspace/predictive-maintenance run build && pnpm --filter @workspace/api-server run build",
